@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx';
 import {
   listGroups,
   listSubBudgetsByMonth,
@@ -9,6 +8,7 @@ import { formatCurrency, monthLabel, excelFileName } from './format';
 import type { BudgetGroup, SubBudget, Transaction, IncomeEntry } from './types';
 
 export async function exportToExcel(monthKeyStr: string): Promise<void> {
+  const XLSX = await import('xlsx');
   const [groups, subBudgets, transactions, incomes] = await Promise.all([
     listGroups(monthKeyStr),
     listSubBudgetsByMonth(monthKeyStr),
@@ -133,6 +133,7 @@ export async function exportToExcel(monthKeyStr: string): Promise<void> {
 }
 
 export async function exportIncomeToExcel(monthKeyStr: string): Promise<void> {
+  const XLSX = await import('xlsx');
   const incomes = await listIncomes(monthKeyStr);
   const symbol = 'Rp';
 
