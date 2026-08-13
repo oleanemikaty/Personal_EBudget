@@ -1,4 +1,5 @@
 import { getDBAsync, uid } from './db';
+import { normalizeGroupColor } from './colors';
 import { DEFAULT_INCOME_CATEGORIES, DEFAULT_INCOME_ACCOUNTS } from './income';
 import type {
   BudgetMonth,
@@ -106,14 +107,19 @@ export async function saveTemplateToMonth(monthId: string): Promise<void> {
 
 export async function listGroups(monthId: string): Promise<BudgetGroup[]> {
   const db = await getDBAsync();
-  return db.groups.where('monthId').equals(monthId).sortBy('order');
+  const groups = await db.groups.where('monthId').equals(monthId).sortBy('order');
+  return Promise.all(groups.map(async (group: BudgetGroup) => {
+    const color = normalizeGroupColor(group.color);
+    if (group.color !== color) await db.groups.update(group.id, { color });
+    return { ...group, color };
+  }));
 }
 
 export async function createGroup(
   data: Omit<BudgetGroup, 'id' | 'createdAt'>
 ): Promise<BudgetGroup> {
   const db = await getDBAsync();
-  const group: BudgetGroup = { ...data, id: uid(), createdAt: Date.now() };
+  const group: BudgetGroup = { ...data, color: normalizeGroupColor(data.color), id: uid(), createdAt: Date.now() };
   await db.groups.put(group);
   return group;
 }
@@ -123,7 +129,7 @@ export async function updateGroup(
   changes: Partial<BudgetGroup>
 ): Promise<void> {
   const db = await getDBAsync();
-  await db.groups.update(id, changes);
+  await db.groups.update(id, { ...changes, ...(changes.color ? { color: normalizeGroupColor(changes.color) } : {}) });
 }
 
 export async function deleteGroup(id: string): Promise<void> {

@@ -74,9 +74,10 @@ export default function DashboardPage() {
     });
 
     const pieData = groups.map((g) => ({
+      id: g.id,
       name: g.name,
       value: groupSpending[g.id] || 0,
-      color: getColor(g.color).bar,
+      color: getColor(g.color).hex,
     })).filter((d) => d.value > 0);
 
     const subPieData = subBudgets.map((s) => ({
@@ -231,8 +232,8 @@ export default function DashboardPage() {
                     outerRadius={80}
                     paddingAngle={2}
                   >
-                    {data.pieData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
+                    {data.pieData.map((entry) => (
+                      <Cell key={entry.id} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip

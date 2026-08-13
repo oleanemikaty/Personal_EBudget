@@ -18,7 +18,7 @@ import {
   saveTemplateToMonth,
 } from '@/lib/data';
 import { getCurrencySymbol, formatCurrency } from '@/lib/format';
-import { getColor, COLORS, colorStyle } from '@/lib/colors';
+import { getColor, COLORS, colorStyle, isHexColor, normalizeHex } from '@/lib/colors';
 import {
   computeSummary,
   getStatusBadgeClass,
@@ -159,9 +159,7 @@ export default function BudgetsPage() {
             const isExpanded = expandedGroup === group.id;
             const c = getColor(group.color);
             const isCustomColor = group.color.startsWith('#');
-            const barStyle = isCustomColor
-              ? { background: getProgressGradient(summary.progress) }
-              : undefined;
+            const barStyle = colorStyle(group.color, 'bar');
             const iconBgStyle = isCustomColor ? colorStyle(group.color, 'bg') : undefined;
 
             return (
@@ -556,9 +554,9 @@ function GroupDialog({
                     whileTap={{ scale: 0.9 }}
                     className={cn(
                       'relative flex h-9 w-9 items-center justify-center rounded-full transition-all',
-                      c.solid,
                       selected && 'ring-2 ring-offset-2 ring-offset-background ring-foreground'
                     )}
+                    style={colorStyle(c.key, 'solid')}
                     aria-label={c.label}
                   >
                     <AnimatePresence>
@@ -611,6 +609,23 @@ function GroupDialog({
                   <Check className="h-5 w-5 text-foreground" strokeWidth={3} />
                 </motion.div>
               )}
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <Label htmlFor="custom-hex" className="sr-only">Custom hex color</Label>
+              <Input
+                id="custom-hex"
+                value={customColor}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setCustomColor(value);
+                  if (isHexColor(value)) setColor('custom');
+                }}
+                onBlur={() => setCustomColor(normalizeHex(customColor))}
+                placeholder="#3b82f6"
+                className="font-mono uppercase"
+                maxLength={7}
+              />
+              <span className="shrink-0 text-xs text-muted-foreground">HEX</span>
             </div>
           </div>
           <div>

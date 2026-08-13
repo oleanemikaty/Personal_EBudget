@@ -90,9 +90,10 @@ export default function ReportsPage() {
         const budget = subs.reduce((sum, s) => sum + s.budget, 0);
         const used = groupSpending[g.id] || 0;
         return {
+          id: g.id,
           name: g.name,
           icon: g.icon,
-          color: getColor(g.color).bar,
+          color: getColor(g.color).hex,
           budget,
           used,
           summary: computeSummary(budget, used),
@@ -106,7 +107,7 @@ export default function ReportsPage() {
         return {
           name: s.name,
           value: subSpending[s.id] || 0,
-          color: getColor(group?.color || 'slate').bar,
+          color: getColor(group?.color || 'slate').hex,
         };
       })
       .filter((d) => d.value > 0)
@@ -329,8 +330,8 @@ export default function ReportsPage() {
                     outerRadius={80}
                     paddingAngle={2}
                   >
-                    {report.groupData.filter((g) => g.used > 0).map((g, i) => (
-                      <Cell key={i} fill={g.color} />
+                    {report.groupData.filter((g) => g.used > 0).map((g) => (
+                      <Cell key={g.id} fill={g.color} />
                     ))}
                   </Pie>
                   <Tooltip

@@ -33,40 +33,41 @@ export const COLORS: ColorOption[] = [
   { key: 'black', label: 'Black', bg: 'bg-black/10', text: 'text-black dark:text-white', bar: 'bg-black', ring: 'ring-black/20', solid: 'bg-black', dot: 'bg-black', hex: '#000000' },
 ];
 
-export function getColor(key: string): ColorOption {
-  // Check predefined colors first
-  const found = COLORS.find((c) => c.key === key);
-  if (found) return found;
-  // If key is a custom hex color, generate a ColorOption on the fly
-  if (key.startsWith('#')) {
-    return {
-      key,
-      label: 'Custom',
-      bg: '',
-      text: '',
-      bar: '',
-      ring: '',
-      solid: '',
-      dot: '',
-      hex: key,
-    };
+export const DEFAULT_COLOR = '#3b82f6';
+
+export function normalizeHex(value: string | undefined, fallback = DEFAULT_COLOR): string {
+  const raw = (value || '').trim();
+  const withHash = raw.startsWith('#') ? raw : `#${raw}`;
+  if (/^#[0-9a-f]{3}$/i.test(withHash)) {
+    return `#${withHash.slice(1).split('').map((c) => c + c).join('')}`.toLowerCase();
   }
-  return COLORS[0];
+  if (/^#[0-9a-f]{6}$/i.test(withHash)) return withHash.toLowerCase();
+  return fallback;
 }
 
-// Get inline style for a color (used when color is a custom hex)
-export function colorStyle(key: string, type: 'bg' | 'bar' | 'text' | 'solid'): React.CSSProperties {
-  const c = getColor(key);
-  if (key.startsWith('#')) {
-    switch (type) {
-      case 'bg':
-        return { backgroundColor: `${c.hex}1a` };
-      case 'bar':
-      case 'solid':
-        return { backgroundColor: c.hex };
-      case 'text':
-        return { color: c.hex };
-    }
-  }
-  return {};
+export function isHexColor(value: string | undefined): boolean {
+  return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(value || '');
+}
+
+export function normalizeGroupColor(value: string | undefined): string {
+  if (COLORS.some((color) => color.key === value)) return value as string;
+  return normalizeHex(value, DEFAULT_COLOR);
+}
+
+export function getColor(key: string | undefined): ColorOption {
+  const found = COLORS.find((c) => c.key === key);
+  if (found) return found;
+  const hex = normalizeHex(key);
+  return {
+    key: hex,
+    label: 'Custom',
+    bg: '', text: '', bar: '', ring: '', solid: '', dot: '', hex,
+  };
+}
+
+export function colorStyle(key: string | undefined, type: 'bg' | 'bar' | 'text' | 'solid'): React.CSSProperties {
+  const color = getColor(key);
+  if (type === 'bg') return { backgroundColor: `${color.hex}1a` };
+  if (type === 'text') return { color: color.hex };
+  return { backgroundColor: color.hex };
 }
