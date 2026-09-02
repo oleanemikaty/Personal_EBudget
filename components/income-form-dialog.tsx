@@ -55,6 +55,7 @@ export function IncomeFormDialog({
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [showSourceSuggestions, setShowSourceSuggestions] = useState(false);
+  const [validationError, setValidationError] = useState('');
 
   useEffect(() => {
     if (open && editingIncome) {
@@ -80,9 +81,26 @@ export function IncomeFormDialog({
   }, [amount, source, category, account]);
 
   const handleSave = async () => {
-    if (!canSave || !monthId) return;
-    setSaving(true);
     const amt = parseInt(amount, 10);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setValidationError('Enter an amount greater than 0.');
+      return;
+    }
+    if (!source.trim()) {
+      setValidationError('Income Source is required.');
+      return;
+    }
+    if (!category) {
+      setValidationError('Select an Income Category.');
+      return;
+    }
+    if (!account) {
+      setValidationError('Select a Payment Method / Account.');
+      return;
+    }
+    if (!monthId) return;
+    setValidationError('');
+    setSaving(true);
     try {
       if (editingIncome) {
         await updateIncome(editingIncome.id, {
@@ -228,6 +246,10 @@ export function IncomeFormDialog({
             />
           </div>
         </div>
+
+        {validationError && (
+          <p className="text-sm text-destructive" role="alert">{validationError}</p>
+        )}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

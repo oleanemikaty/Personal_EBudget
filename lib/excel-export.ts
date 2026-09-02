@@ -99,7 +99,7 @@ export async function exportToExcel(monthKeyStr: string): Promise<void> {
   // Sheet 5: Income Details
   const incomeRows = incomes.map((i: IncomeEntry) => ({
     Date: i.date,
-    Amount: formatCurrency(i.amount, symbol),
+    Amount: i.amount,
     Source: i.source || '',
     Category: i.category || '',
     'Payment Method': i.account || '',
@@ -138,7 +138,7 @@ export async function exportIncomeToExcel(monthKeyStr: string): Promise<void> {
 
   const incomeRows = incomes.map((i: IncomeEntry) => ({
     Date: i.date,
-    Amount: formatCurrency(i.amount, symbol),
+    Amount: i.amount,
     Source: i.source || '',
     Category: i.category || '',
     'Payment Method': i.account || '',

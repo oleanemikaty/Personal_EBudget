@@ -293,9 +293,23 @@ export async function getTransactionsByDate(
 
 // ---- Income ----
 
+const FALLBACK_CATEGORY = 'Other Income';
+const FALLBACK_ACCOUNT = 'Other';
+
+function normalizeIncome(income: IncomeEntry): IncomeEntry {
+  return {
+    ...income,
+    category: income.category?.trim() || FALLBACK_CATEGORY,
+    account: income.account?.trim() || FALLBACK_ACCOUNT,
+    source: income.source || '',
+    notes: income.notes || '',
+  };
+}
+
 export async function listIncomes(monthId: string): Promise<IncomeEntry[]> {
   const db = await getDBAsync();
-  return db.incomes.where('monthId').equals(monthId).toArray();
+  const incomes = await db.incomes.where('monthId').equals(monthId).toArray();
+  return incomes.map(normalizeIncome);
 }
 
 export async function createIncome(
@@ -303,7 +317,16 @@ export async function createIncome(
 ): Promise<IncomeEntry> {
   const db = await getDBAsync();
   const now = Date.now();
-  const income: IncomeEntry = { ...data, id: uid(), createdAt: now, updatedAt: now };
+  const income: IncomeEntry = {
+    ...data,
+    category: data.category?.trim() || FALLBACK_CATEGORY,
+    account: data.account?.trim() || FALLBACK_ACCOUNT,
+    source: data.source.trim(),
+    notes: data.notes || '',
+    id: uid(),
+    createdAt: now,
+    updatedAt: now,
+  };
   await db.incomes.put(income);
   return income;
 }
@@ -313,7 +336,14 @@ export async function updateIncome(
   changes: Partial<IncomeEntry>
 ): Promise<void> {
   const db = await getDBAsync();
-  await db.incomes.update(id, { ...changes, updatedAt: Date.now() });
+  const safeChanges = {
+    ...changes,
+    ...(changes.category !== undefined && { category: changes.category.trim() || FALLBACK_CATEGORY }),
+    ...(changes.account !== undefined && { account: changes.account.trim() || FALLBACK_ACCOUNT }),
+    ...(changes.source !== undefined && { source: changes.source.trim() }),
+    ...(changes.notes !== undefined && { notes: changes.notes || '' }),
+  };
+  await db.incomes.update(id, { ...safeChanges, updatedAt: Date.now() });
 }
 
 export async function deleteIncome(id: string): Promise<void> {
