@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSettings } from '@/hooks/use-settings';
-import { setSetting, exportAllData, importData, ensureMonth, listMonths } from '@/lib/data';
+import {
+  setSetting, exportAllData, importData, ensureMonth, listMonths,
+  listIncomeCategories, listIncomeAccounts, createIncomeCategory, createIncomeAccount,
+  deleteIncomeCategory, deleteIncomeAccount,
+} from '@/lib/data';
 import { exportToExcel } from '@/lib/excel-export';
 import { CURRENCIES, getCurrencySymbol, monthKey, nextMonthKey, monthLabel } from '@/lib/format';
 import { useTheme } from 'next-themes';
@@ -53,11 +57,38 @@ export default function SettingsPage() {
   const [pinDialog, setPinDialog] = useState(false);
   const [pin, setPin] = useState('');
   const [months, setMonths] = useState<BudgetMonth[]>([]);
+  const [incomeCategories, setIncomeCategories] = useState<{ id: string; name: string }[]>([]);
+  const [incomeAccounts, setIncomeAccounts] = useState<{ id: string; name: string }[]>([]);
+  const [newCategory, setNewCategory] = useState('');
+  const [newAccount, setNewAccount] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const refreshIncomeOptions = async () => {
+    const [categories, accounts] = await Promise.all([listIncomeCategories(), listIncomeAccounts()]);
+    setIncomeCategories(categories);
+    setIncomeAccounts(accounts);
+  };
 
   useEffect(() => {
     listMonths().then(setMonths);
+    refreshIncomeOptions();
   }, []);
+
+  const addCategory = async () => {
+    const name = newCategory.trim();
+    if (!name || incomeCategories.some((item) => item.name.toLowerCase() === name.toLowerCase())) return;
+    await createIncomeCategory({ name, icon: 'wallet', color: '#64748b', isCustom: true });
+    setNewCategory('');
+    await refreshIncomeOptions();
+  };
+
+  const addAccount = async () => {
+    const name = newAccount.trim();
+    if (!name || incomeAccounts.some((item) => item.name.toLowerCase() === name.toLowerCase())) return;
+    await createIncomeAccount({ name, icon: 'wallet', isCustom: true });
+    setNewAccount('');
+    await refreshIncomeOptions();
+  };
 
   const handleCurrencyChange = async (value: string) => {
     await setSetting('currency', value);
@@ -252,6 +283,14 @@ export default function SettingsPage() {
         </div>
       </Section>
 
+      {/* Income options */}
+      <Section title="Income Options" icon={DollarSign}>
+        <div className="flex flex-col gap-4 p-4">
+          <OptionManager label="Categories" value={newCategory} onChange={setNewCategory} onAdd={addCategory} items={incomeCategories} onDelete={async (id) => { await deleteIncomeCategory(id); await refreshIncomeOptions(); }} />
+          <OptionManager label="Accounts" value={newAccount} onChange={setNewAccount} onAdd={addAccount} items={incomeAccounts} onDelete={async (id) => { await deleteIncomeAccount(id); await refreshIncomeOptions(); }} />
+        </div>
+      </Section>
+
       {/* Data */}
       <Section title="Data Management" icon={Database}>
         <div className="space-y-2 p-4">
@@ -318,6 +357,34 @@ export default function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function OptionManager({
+  label, value, onChange, onAdd, items, onDelete,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  onAdd: () => void;
+  items: { id: string; name: string }[];
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Label>{label}</Label>
+      <div className="flex gap-2">
+        <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder={`Add ${label === 'Categories' ? 'category' : 'account'}`} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); onAdd(); } }} />
+        <Button type="button" onClick={onAdd} disabled={!value.trim()}>Add</Button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {items.map((item) => (
+          <button key={item.id} type="button" className="rounded-full bg-muted px-3 py-1 text-xs" onClick={() => onDelete(item.id)} title={`Delete ${item.name}`}>
+            {item.name} ×
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
