@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useMonth } from '@/hooks/use-month';
 import { useSettings } from '@/hooks/use-settings';
+import { useMonthlyTemplate } from '@/hooks/use-monthly-template';
 import { useGroups, useSubBudgetsByMonth, useTransactions } from '@/hooks/use-data';
 import {
   createGroup,
@@ -64,6 +65,7 @@ import { GROUP_ICONS, SUB_ICONS } from '@/lib/icons';
 export default function BudgetsPage() {
   const { currentMonth } = useMonth();
   const settings = useSettings();
+  const template = useMonthlyTemplate();
   const symbol = getCurrencySymbol(settings.currency);
   const groups = useGroups(currentMonth);
   const subBudgets = useSubBudgetsByMonth(currentMonth);
@@ -425,22 +427,28 @@ export default function BudgetsPage() {
         />
       )}
 
-      {groups.length > 0 && (
-        <div className="mt-6 px-5">
-          <Button
-            variant="outline"
-            className="w-full"
-            disabled={savingTemplate}
-            onClick={() => setConfirmTemplate(true)}
-          >
+      <div className="mt-6 px-5">
+        <div className="rounded-xl border border-border bg-muted/30 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Monthly template</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {template?.groups.length ?? 0} groups · {template?.subBudgets.length ?? 0} sub-budgets · {formatCurrency(template?.totalBudget ?? 0, symbol)} planned
+              </p>
+            </div>
+            <span className="text-xs text-muted-foreground">{template?.updatedAt ? new Date(template.updatedAt).toLocaleDateString() : 'Not saved'}</span>
+          </div>
+          {template && template.groups.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {template.groups.map((group) => <span key={group.id} className="rounded-md bg-background px-2 py-1 text-xs text-muted-foreground">{group.icon} {group.name}</span>)}
+            </div>
+          )}
+          <Button variant="outline" className="mt-4 w-full" disabled={savingTemplate} onClick={() => setConfirmTemplate(true)}>
             <Save className="mr-2 h-4 w-4" />
-            {savingTemplate ? 'Saving Template…' : 'Save as Monthly Template'}
+            {savingTemplate ? 'Saving template…' : 'Save as monthly template'}
           </Button>
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            The template is used to create new months automatically
-          </p>
         </div>
-      )}
+      </div>
 
       <Dialog open={confirmTemplate} onOpenChange={setConfirmTemplate}>
         <DialogContent>

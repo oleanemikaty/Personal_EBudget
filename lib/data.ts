@@ -19,13 +19,11 @@ const TEMPLATE_ID = 'template';
 
 export async function ensureMonth(key: string): Promise<BudgetMonth> {
   const db = await getDBAsync();
-  const existing = await db.months.get(key);
-  if (existing) return existing;
   let created: BudgetMonth;
   await db.transaction('rw', db.months, db.groups, db.subBudgets, async () => {
-    const month = await db.months.get(key);
-    if (month) {
-      created = month;
+    const existing = await db.months.get(key);
+    if (existing) {
+      created = existing;
       return;
     }
     created = { id: key, isTemplate: false, createdAt: Date.now() };

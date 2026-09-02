@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSettings } from '@/hooks/use-settings';
+import { useMonth } from '@/hooks/use-month';
 import {
   setSetting, exportAllData, importData, ensureMonth, listMonths,
   listIncomeCategories, listIncomeAccounts, createIncomeCategory, createIncomeAccount,
-  deleteIncomeCategory, deleteIncomeAccount,
+  deleteIncomeCategory, deleteIncomeAccount, clearTemplate,
 } from '@/lib/data';
 import { exportToExcel } from '@/lib/excel-export';
 import { CURRENCIES, getCurrencySymbol, monthKey, nextMonthKey, monthLabel } from '@/lib/format';
@@ -52,6 +53,7 @@ import type { BudgetMonth } from '@/lib/types';
 
 export default function SettingsPage() {
   const settings = useSettings();
+  const { currentMonth } = useMonth();
   const { theme, setTheme } = useTheme();
 
   const [pinDialog, setPinDialog] = useState(false);
@@ -61,6 +63,7 @@ export default function SettingsPage() {
   const [incomeAccounts, setIncomeAccounts] = useState<{ id: string; name: string }[]>([]);
   const [newCategory, setNewCategory] = useState('');
   const [newAccount, setNewAccount] = useState('');
+  const [clearTemplateDialog, setClearTemplateDialog] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refreshIncomeOptions = async () => {
@@ -155,10 +158,18 @@ export default function SettingsPage() {
   };
 
   const handleCreateNextMonth = async () => {
-    const next = nextMonthKey(monthKey());
+    const source = currentMonth || monthKey();
+    const next = nextMonthKey(source);
+    const existing = months.some((month) => month.id === next);
     await ensureMonth(next);
-    listMonths().then(setMonths);
-    toast.success(`${monthLabel(next)} created from template`);
+    setMonths(await listMonths());
+    toast.success(existing ? `${monthLabel(next)} already exists` : `${monthLabel(next)} created from template`);
+  };
+
+  const handleClearTemplate = async () => {
+    if (!window.confirm('Clear the monthly template? Existing months will not change.')) return;
+    await clearTemplate();
+    toast.success('Monthly template cleared');
   };
 
   const themeOptions = [
@@ -279,11 +290,14 @@ export default function SettingsPage() {
           <Button variant="outline" size="sm" className="mt-3 w-full" onClick={handleCreateNextMonth}>
             <Plus className="mr-1 h-3.5 w-3.5" />
             Create Next Month
-          </Button>
-        </div>
-      </Section>
+            </Button>
+            <Button variant="ghost" size="sm" className="mt-2 w-full text-destructive" onClick={handleClearTemplate}>
+              Clear Monthly Template
+            </Button>
+          </div>
+        </Section>
 
-      {/* Income options */}
+        {/* Income options */}
       <Section title="Income Options" icon={DollarSign}>
         <div className="flex flex-col gap-4 p-4">
           <OptionManager label="Categories" value={newCategory} onChange={setNewCategory} onAdd={addCategory} items={incomeCategories} onDelete={async (id) => { await deleteIncomeCategory(id); await refreshIncomeOptions(); }} />
