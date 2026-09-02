@@ -47,7 +47,7 @@ async function getDBAsync() {
   }
   if (!_db) {
     const Dexie = await loadDexie();
-    const db = new Dexie('PersonalBudgetManager');
+    const db = new Dexie('PersonalBudgetManager', { cache: 'disabled' });
     db.version(1).stores({
       months: 'id, isTemplate',
       groups: 'id, monthId, order',
