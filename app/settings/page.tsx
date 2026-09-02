@@ -56,6 +56,7 @@ export default function SettingsPage() {
   const { currentMonth } = useMonth();
   const { theme, setTheme } = useTheme();
 
+  const [mounted, setMounted] = useState(false);
   const [pinDialog, setPinDialog] = useState(false);
   const [pin, setPin] = useState('');
   const [months, setMonths] = useState<BudgetMonth[]>([]);
@@ -73,6 +74,7 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
+    setMounted(true);
     listMonths().then(setMonths);
     refreshIncomeOptions();
   }, []);
@@ -195,8 +197,8 @@ export default function SettingsPage() {
                   onClick={() => handleThemeChange(opt.value)}
                   className={cn(
                     'flex flex-1 flex-col items-center gap-1.5 rounded-xl border py-3 transition-all',
-                    theme === opt.value
-                      ? 'border-primary bg-primary/5 text-primary'
+              mounted && theme === opt.value
+                ? 'border-primary bg-primary/5 text-primary'
                       : 'border-border text-muted-foreground'
                   )}
                 >
