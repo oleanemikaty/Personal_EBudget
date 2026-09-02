@@ -17,17 +17,22 @@ const TEMPLATE_ID = 'template';
 
 // ---- Months ----
 
-export async function ensureMonth(
-  key: string
-): Promise<BudgetMonth> {
+export async function ensureMonth(key: string): Promise<BudgetMonth> {
   const db = await getDBAsync();
-  let month = await db.months.get(key);
-  if (!month) {
-    month = { id: key, isTemplate: false, createdAt: Date.now() };
-    await db.months.put(month);
-    await createMonthFromTemplate(key);
-  }
-  return month;
+  const existing = await db.months.get(key);
+  if (existing) return existing;
+  let created: BudgetMonth;
+  await db.transaction('rw', db.months, db.groups, db.subBudgets, async () => {
+    const month = await db.months.get(key);
+    if (month) {
+      created = month;
+      return;
+    }
+    created = { id: key, isTemplate: false, createdAt: Date.now() };
+    await db.months.put(created);
+    await copyTemplateStructure(db, key);
+  });
+  return created!;
 }
 
 export async function getMonth(key: string): Promise<BudgetMonth | undefined> {
@@ -60,46 +65,50 @@ export async function ensureTemplate(): Promise<BudgetMonth> {
   return template;
 }
 
-export async function createMonthFromTemplate(monthId: string): Promise<void> {
-  const db = await getDBAsync();
+async function copyTemplateStructure(db: any, monthId: string): Promise<void> {
   const template = await db.months.get(TEMPLATE_ID);
   if (!template) return;
-
-  const tplGroups = await db.groups
-    .where('monthId')
-    .equals(TEMPLATE_ID)
-    .sortBy('order');
-
-  for (const tplGroup of tplGroups) {
-    const newGroupId = uid();
-    await db.groups.put({
-      ...tplGroup,
-      id: newGroupId,
-      monthId,
-      createdAt: Date.now(),
-    });
-
-    const tplSubs = await db.subBudgets
-      .where('groupId')
-      .equals(tplGroup.id)
-      .sortBy('order');
-
-    for (const tplSub of tplSubs) {
-      await db.subBudgets.put({
-        ...tplSub,
-        id: uid(),
-        groupId: newGroupId,
-        monthId,
-      });
-    }
+  const groups = await db.groups.where('monthId').equals(TEMPLATE_ID).sortBy('order');
+  const now = Date.now();
+  for (const group of groups) {
+    const groupId = uid();
+    await db.groups.put({ ...group, id: groupId, monthId, createdAt: now });
+    const subs = await db.subBudgets.where('groupId').equals(group.id).sortBy('order');
+    await db.subBudgets.bulkPut(subs.map((sub: SubBudget) => ({ ...sub, id: uid(), groupId, monthId, createdAt: now })));
   }
 }
 
-export async function saveTemplateToMonth(monthId: string): Promise<void> {
+export async function createMonthFromTemplate(monthId: string): Promise<void> {
   const db = await getDBAsync();
-  await db.groups.where('monthId').equals(monthId).delete();
-  await db.subBudgets.where('monthId').equals(monthId).delete();
-  await createMonthFromTemplate(monthId);
+  await db.transaction('rw', db.months, db.groups, db.subBudgets, async () => copyTemplateStructure(db, monthId));
+}
+
+export async function saveMonthAsTemplate(monthId: string): Promise<void> {
+  const db = await getDBAsync();
+  await db.transaction('rw', db.months, db.groups, db.subBudgets, async () => {
+    const sourceGroups = await db.groups.where('monthId').equals(monthId).sortBy('order');
+    const sourceSubs = await db.subBudgets.where('monthId').equals(monthId).toArray();
+    await db.subBudgets.where('monthId').equals(TEMPLATE_ID).delete();
+    await db.groups.where('monthId').equals(TEMPLATE_ID).delete();
+    const now = Date.now();
+    await db.months.put({ id: TEMPLATE_ID, isTemplate: true, createdAt: now, updatedAt: now });
+    for (const group of sourceGroups) {
+      const groupId = uid();
+      await db.groups.put({ ...group, id: groupId, monthId: TEMPLATE_ID, createdAt: now });
+      await db.subBudgets.bulkPut(sourceSubs.filter((s: SubBudget) => s.groupId === group.id).map((s: SubBudget) => ({ ...s, id: uid(), groupId, monthId: TEMPLATE_ID, createdAt: now })));
+    }
+  });
+}
+
+export const saveTemplateToMonth = saveMonthAsTemplate;
+
+export async function clearTemplate(): Promise<void> {
+  const db = await getDBAsync();
+  await db.transaction('rw', db.months, db.groups, db.subBudgets, async () => {
+    await db.groups.where('monthId').equals(TEMPLATE_ID).delete();
+    await db.subBudgets.where('monthId').equals(TEMPLATE_ID).delete();
+    await db.months.delete(TEMPLATE_ID);
+  });
 }
 
 // ---- Groups ----

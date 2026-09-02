@@ -11,6 +11,7 @@ export interface BudgetMonth {
   id: string; // "YYYY-MM" or "template"
   isTemplate: boolean;
   createdAt: number;
+  updatedAt?: number;
 }
 
 export interface BudgetGroup {
