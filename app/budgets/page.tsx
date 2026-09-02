@@ -15,7 +15,7 @@ import {
   deleteSubBudget,
   duplicateSubBudget,
   reorderSubBudgets,
-  saveTemplateToMonth,
+  saveMonthAsTemplate,
 } from '@/lib/data';
 import { getCurrencySymbol, formatCurrency } from '@/lib/format';
 import { getColor, COLORS, colorStyle } from '@/lib/colors';
@@ -79,6 +79,8 @@ export default function BudgetsPage() {
     groupId?: string;
     editId?: string;
   }>({ open: false });
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [confirmTemplate, setConfirmTemplate] = useState(false);
 
   const spendingMap = useMemo(() => {
     if (!transactions) return {};
@@ -428,19 +430,28 @@ export default function BudgetsPage() {
           <Button
             variant="outline"
             className="w-full"
-            onClick={async () => {
-              await saveTemplateToMonth(currentMonth);
-              toast.success('Budget saved as template for future months');
-            }}
+            disabled={savingTemplate}
+            onClick={() => setConfirmTemplate(true)}
           >
             <Save className="mr-2 h-4 w-4" />
-            Save as Monthly Template
+            {savingTemplate ? 'Saving Template…' : 'Save as Monthly Template'}
           </Button>
           <p className="mt-2 text-center text-xs text-muted-foreground">
             The template is used to create new months automatically
           </p>
         </div>
       )}
+
+      <Dialog open={confirmTemplate} onOpenChange={setConfirmTemplate}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Replace monthly template?</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">This replaces the existing template with this month’s budget. Your current month stays unchanged.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmTemplate(false)}>Cancel</Button>
+            <Button onClick={async () => { setSavingTemplate(true); try { await saveMonthAsTemplate(currentMonth); toast.success('Budget saved as monthly template'); setConfirmTemplate(false); } catch { toast.error('Could not save monthly template'); } finally { setSavingTemplate(false); } }}>Replace Template</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <GroupDialog
         open={groupDialog.open}
