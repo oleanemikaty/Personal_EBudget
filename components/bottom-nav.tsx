@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, Receipt, Plus, BarChart3, Settings, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -40,7 +40,7 @@ export function BottomNav() {
               return (
                 <button
                   key={item.href}
-                  onClick={() => router.push(item.href)}
+                  onClick={() => window.location.assign(item.href)}
                   className="flex flex-col items-center gap-1 -mt-6"
                   aria-label={item.label}
                 >
@@ -57,7 +57,7 @@ export function BottomNav() {
             return (
               <button
                 key={item.href}
-                onClick={() => router.push(item.href)}
+                onClick={() => window.location.assign(item.href)}
                 className="flex flex-1 flex-col items-center gap-1 py-1"
                 aria-label={item.label}
               >
