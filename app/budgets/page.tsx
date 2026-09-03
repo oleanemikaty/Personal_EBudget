@@ -15,7 +15,7 @@ import {
   deleteSubBudget,
   duplicateSubBudget,
   reorderSubBudgets,
-  saveTemplateToMonth,
+  saveMonthAsTemplate,
 } from '@/lib/data';
 import { getCurrencySymbol, formatCurrency } from '@/lib/format';
 import { getColor, COLORS, colorStyle } from '@/lib/colors';
@@ -429,8 +429,17 @@ export default function BudgetsPage() {
             variant="outline"
             className="w-full"
             onClick={async () => {
-              await saveTemplateToMonth(currentMonth);
-              toast.success('Budget saved as template for future months');
+              try {
+                const groupsBefore = groups.length;
+                await saveMonthAsTemplate(currentMonth);
+                if (groups.length !== groupsBefore) {
+                  toast.error('Template was not saved because current month data could not be verified.');
+                  return;
+                }
+                toast.success('Monthly template saved successfully. Your current budget was not changed.');
+              } catch {
+                toast.error('Could not save monthly template. Your current budget is unchanged.');
+              }
             }}
           >
             <Save className="mr-2 h-4 w-4" />
