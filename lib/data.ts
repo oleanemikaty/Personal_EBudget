@@ -146,14 +146,15 @@ export async function saveTemplateToMonth(monthId: string): Promise<void> {
   await createMonthFromTemplate(monthId);
 }
 
-export async function saveMonthAsTemplate(monthId: string): Promise<void> {
+export async function saveMonthAsTemplate(
+  monthId: string
+): Promise<{ groupCount: number; subBudgetCount: number }> {
   if (!monthId || monthId === TEMPLATE_ID) {
     throw new Error('Invalid source month');
   }
 
   const db = await getDBAsync();
 
-  // Pre-save snapshot of source month
   const sourceGroupsBefore = await db.groups
     .where('monthId')
     .equals(monthId)
@@ -163,19 +164,23 @@ export async function saveMonthAsTemplate(monthId: string): Promise<void> {
     .equals(monthId)
     .toArray();
 
+  const beforeGroupIds = sourceGroupsBefore.map((g: BudgetGroup) => g.id);
+  const beforeSubIds = sourceSubsBefore.map((s: SubBudget) => s.id);
+
+  let groupCount = 0;
+  let subBudgetCount = 0;
+
   await db.transaction(
     'rw',
     db.months,
     db.groups,
     db.subBudgets,
     async () => {
-      // 1. Validate source month
       const sourceMonth = await db.months.get(monthId);
       if (!sourceMonth || sourceMonth.isTemplate) {
         throw new Error('Invalid source month');
       }
 
-      // 2. READ source groups and sub-budgets (do NOT modify them)
       const sourceGroups = await db.groups
         .where('monthId')
         .equals(monthId)
@@ -185,20 +190,19 @@ export async function saveMonthAsTemplate(monthId: string): Promise<void> {
         .equals(monthId)
         .toArray();
 
-      // 3. Delete ONLY existing template records
       await db.subBudgets.where('monthId').equals(TEMPLATE_ID).delete();
       await db.groups.where('monthId').equals(TEMPLATE_ID).delete();
 
-      // 4. Create/update template metadata
       const now = Date.now();
       await db.months.put({
         id: TEMPLATE_ID,
         isTemplate: true,
         createdAt: now,
-        updatedAt: now,
       });
 
-      // 5. COPY groups into template with new IDs
+      groupCount = sourceGroups.length;
+      subBudgetCount = sourceSubs.length;
+
       for (const sourceGroup of sourceGroups) {
         const templateGroupId = uid();
         await db.groups.put({
@@ -208,7 +212,6 @@ export async function saveMonthAsTemplate(monthId: string): Promise<void> {
           createdAt: now,
         });
 
-        // 6. COPY sub-budgets belonging to this group
         const groupSubs = sourceSubs.filter(
           (sub: SubBudget) => sub.groupId === sourceGroup.id
         );
@@ -225,7 +228,6 @@ export async function saveMonthAsTemplate(monthId: string): Promise<void> {
     }
   );
 
-  // Post-save verification: source month must be unchanged
   const sourceGroupsAfter = await db.groups
     .where('monthId')
     .equals(monthId)
@@ -236,27 +238,27 @@ export async function saveMonthAsTemplate(monthId: string): Promise<void> {
     .toArray();
 
   if (
-    sourceGroupsAfter.length !== sourceGroupsBefore.length ||
-    sourceSubsAfter.length !== sourceSubsBefore.length
+    sourceGroupsAfter.length !== beforeGroupIds.length ||
+    sourceSubsAfter.length !== beforeSubIds.length
   ) {
     throw new Error('Saving template changed current month data unexpectedly.');
   }
 
-  const beforeGroupIds = new Set(sourceGroupsBefore.map((g: BudgetGroup) => g.id));
   const afterGroupIds = new Set(sourceGroupsAfter.map((g: BudgetGroup) => g.id));
-  const beforeSubIds = new Set(sourceSubsBefore.map((s: SubBudget) => s.id));
   const afterSubIds = new Set(sourceSubsAfter.map((s: SubBudget) => s.id));
 
-  const groupsMatch =
-    beforeGroupIds.size === afterGroupIds.size &&
-    sourceGroupsBefore.every((g: BudgetGroup) => afterGroupIds.has(g.id));
-  const subsMatch =
-    beforeSubIds.size === afterSubIds.size &&
-    sourceSubsBefore.every((s: SubBudget) => afterSubIds.has(s.id));
-
-  if (!groupsMatch || !subsMatch) {
-    throw new Error('Saving template changed current month data unexpectedly.');
+  for (const id of beforeGroupIds) {
+    if (!afterGroupIds.has(id)) {
+      throw new Error('Saving template changed current month data unexpectedly.');
+    }
   }
+  for (const id of beforeSubIds) {
+    if (!afterSubIds.has(id)) {
+      throw new Error('Saving template changed current month data unexpectedly.');
+    }
+  }
+
+  return { groupCount, subBudgetCount };
 }
 
 // ---- Groups ----

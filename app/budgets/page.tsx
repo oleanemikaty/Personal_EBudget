@@ -431,13 +431,19 @@ export default function BudgetsPage() {
             onClick={async () => {
               try {
                 const groupsBefore = groups.length;
-                await saveMonthAsTemplate(currentMonth);
+                const result = await saveMonthAsTemplate(currentMonth);
                 if (groups.length !== groupsBefore) {
                   toast.error('Template was not saved because current month data could not be verified.');
                   return;
                 }
-                toast.success('Monthly template saved successfully. Your current budget was not changed.');
-              } catch {
+                toast.success(
+                  `Monthly template saved successfully — ${result.groupCount} ${result.groupCount === 1 ? 'group' : 'groups'}, ${result.subBudgetCount} ${result.subBudgetCount === 1 ? 'sub-budget' : 'sub-budgets'}. Your current budget was not changed.`
+                );
+              } catch (error) {
+                console.error('[Monthly Template] Save failed:', error);
+                console.error('[Monthly Template] Error name:', (error as any)?.name);
+                console.error('[Monthly Template] Error message:', (error as any)?.message);
+                console.error('[Monthly Template] Error stack:', (error as any)?.stack);
                 toast.error('Could not save monthly template. Your current budget is unchanged.');
               }
             }}
