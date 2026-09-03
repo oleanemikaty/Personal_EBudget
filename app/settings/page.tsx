@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSettings } from '@/hooks/use-settings';
-import { setSetting, exportAllData, importData, ensureMonth, listMonths } from '@/lib/data';
+import { useMonth } from '@/hooks/use-month';
+import { setSetting, exportAllData, importData, listMonths, createNextMonth } from '@/lib/data';
 import { exportToExcel } from '@/lib/excel-export';
-import { CURRENCIES, getCurrencySymbol, monthKey, nextMonthKey, monthLabel } from '@/lib/format';
+import { CURRENCIES, getCurrencySymbol, monthKey, monthLabel } from '@/lib/format';
 import { useTheme } from 'next-themes';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
@@ -49,14 +50,18 @@ import type { BudgetMonth } from '@/lib/types';
 export default function SettingsPage() {
   const settings = useSettings();
   const { theme, setTheme } = useTheme();
+  const { currentMonth, setCurrentMonth } = useMonth();
 
   const [pinDialog, setPinDialog] = useState(false);
   const [pin, setPin] = useState('');
   const [months, setMonths] = useState<BudgetMonth[]>([]);
+  const [creating, setCreating] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const refreshMonths = () => listMonths().then(setMonths);
+
   useEffect(() => {
-    listMonths().then(setMonths);
+    refreshMonths();
   }, []);
 
   const handleCurrencyChange = async (value: string) => {
@@ -124,10 +129,22 @@ export default function SettingsPage() {
   };
 
   const handleCreateNextMonth = async () => {
-    const next = nextMonthKey(monthKey());
-    await ensureMonth(next);
-    listMonths().then(setMonths);
-    toast.success(`${monthLabel(next)} created from template`);
+    if (creating || !currentMonth) return;
+    setCreating(true);
+    try {
+      const result = await createNextMonth(currentMonth);
+      await refreshMonths();
+      setCurrentMonth(result.monthId);
+      if (result.created) {
+        toast.success(`${monthLabel(result.monthId)} created from your monthly template.`);
+      } else {
+        toast(`${monthLabel(result.monthId)} already exists.`);
+      }
+    } catch {
+      toast.error('Could not create the next month. Your existing budget data was not changed.');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const themeOptions = [
@@ -245,9 +262,15 @@ export default function SettingsPage() {
               </div>
             ))}
           </div>
-          <Button variant="outline" size="sm" className="mt-3 w-full" onClick={handleCreateNextMonth}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3 w-full"
+            onClick={handleCreateNextMonth}
+            disabled={creating || !currentMonth}
+          >
             <Plus className="mr-1 h-3.5 w-3.5" />
-            Create Next Month
+            {creating ? 'Creating...' : 'Create Next Month'}
           </Button>
         </div>
       </Section>

@@ -65,34 +65,78 @@ export async function createMonthFromTemplate(monthId: string): Promise<void> {
   const template = await db.months.get(TEMPLATE_ID);
   if (!template) return;
 
-  const tplGroups = await db.groups
-    .where('monthId')
-    .equals(TEMPLATE_ID)
-    .sortBy('order');
+  await db.transaction(
+    'rw',
+    db.months,
+    db.groups,
+    db.subBudgets,
+    async () => {
+      const now = Date.now();
 
-  for (const tplGroup of tplGroups) {
-    const newGroupId = uid();
-    await db.groups.put({
-      ...tplGroup,
-      id: newGroupId,
-      monthId,
-      createdAt: Date.now(),
-    });
-
-    const tplSubs = await db.subBudgets
-      .where('groupId')
-      .equals(tplGroup.id)
-      .sortBy('order');
-
-    for (const tplSub of tplSubs) {
-      await db.subBudgets.put({
-        ...tplSub,
-        id: uid(),
-        groupId: newGroupId,
-        monthId,
+      await db.months.put({
+        id: monthId,
+        isTemplate: false,
+        createdAt: now,
       });
+
+      const tplGroups = await db.groups
+        .where('monthId')
+        .equals(TEMPLATE_ID)
+        .sortBy('order');
+
+      const tplSubs = await db.subBudgets
+        .where('monthId')
+        .equals(TEMPLATE_ID)
+        .toArray();
+
+      for (const tplGroup of tplGroups) {
+        const newGroupId = uid();
+        await db.groups.put({
+          ...tplGroup,
+          id: newGroupId,
+          monthId,
+          createdAt: now,
+        });
+
+        const groupSubs = tplSubs.filter(
+          (sub: SubBudget) => sub.groupId === tplGroup.id
+        );
+
+        await db.subBudgets.bulkPut(
+          groupSubs.map((sub: SubBudget) => ({
+            ...sub,
+            id: uid(),
+            groupId: newGroupId,
+            monthId,
+            createdAt: now,
+          }))
+        );
+      }
     }
+  );
+}
+
+export async function createNextMonth(
+  currentMonthId: string
+): Promise<{ monthId: string; created: boolean }> {
+  if (!currentMonthId || currentMonthId === TEMPLATE_ID) {
+    throw new Error('Invalid current month');
   }
+
+  const db = await getDBAsync();
+  const [year, month] = currentMonthId.split('-').map(Number);
+  const nextDate = new Date(year, month, 1);
+  const nextMonthId = `${nextDate.getFullYear()}-${String(
+    nextDate.getMonth() + 1
+  ).padStart(2, '0')}`;
+
+  const existing = await db.months.get(nextMonthId);
+  if (existing) {
+    return { monthId: nextMonthId, created: false };
+  }
+
+  await createMonthFromTemplate(nextMonthId);
+  return { monthId: nextMonthId, created: true };
 }
 
 export async function saveTemplateToMonth(monthId: string): Promise<void> {
