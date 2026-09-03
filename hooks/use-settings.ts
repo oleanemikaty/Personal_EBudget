@@ -1,6 +1,6 @@
 'use client';
 
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/hooks/use-live-query';
 import { getAllSettings } from '@/lib/data';
 
 export interface AppSettings {

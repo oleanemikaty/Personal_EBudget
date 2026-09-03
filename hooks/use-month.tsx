@@ -22,7 +22,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { monthKey } from '@/lib/format';
 import { ensureMonth, ensureTemplate, seedSampleData, getMonth } from '@/lib/data';
 import type { BudgetMonth } from '@/lib/types';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/hooks/use-live-query';
 
 interface MonthContextValue {
   currentMonth: string;
